@@ -24,7 +24,6 @@
       overflow: hidden;
       margin-top: 40px;
       box-shadow: 0 4px 24px 0 rgba(63,69,81,0.16);
-      transition: background 0.5s;
       /* Safari performance optimizations */
       -webkit-transform: translateZ(0);
       -webkit-backface-visibility: hidden;
@@ -34,7 +33,22 @@
       background: #222;
     }
     #gameContainer.night {
-      background: linear-gradient(to bottom, #070b1f 0%, #0a0f2e 15%, #0d1847 35%, #2d1b69 65%, #4a1a6b 85%, #6b2c5c 100%) !important;
+      background: linear-gradient(to bottom, #070b1f 0%, #0a0f2e 15%, #0d1847 35%, #2d1b69 65%, #4a1a6b 85%, #6b2c5c 100%);
+    }
+    #nightOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, #070b1f 0%, #0a0f2e 15%, #0d1847 35%, #2d1b69 65%, #4a1a6b 85%, #6b2c5c 100%);
+      opacity: 0;
+      transition: opacity 3s ease-in-out;
+      pointer-events: none;
+      z-index: 0;
+    }
+    #nightOverlay.active {
+      opacity: 1;
     }
     #player {
       position: absolute;
@@ -77,14 +91,14 @@
       width: 100%;
       height: 24px;
       background: #bbb; /* lighter grey road */
-      transition: background 0.5s;
+      transition: background 3s ease-in-out; /* Match day/night transition duration */
     }
     #gameContainer.dark #ground {
       background: #666;
     }
     #score, #gameOver, h1, p, #highScore {
       color: #ff69b4 !important; /* bright pink */
-      transition: color 0.5s;
+      transition: color 3s ease-in-out; /* Match day/night transition duration */
     }
     #gameOver {
       display: none;
@@ -159,6 +173,7 @@
   <div id="speed" style="color:#2196f3;margin-bottom:20px;margin-top:8px;">Скорость: 0.0</div>
   <div id="loading" style="font-family:'Press Start 2P',cursive;font-size:1.2em;color:#2196f3;margin-top:40px;">Загрузка...</div>
   <div id="gameContainer">
+    <div id="nightOverlay"></div>
     <canvas id="stars" width="720" height="240" style="position:absolute;left:0;top:0;pointer-events:none;z-index:1;"></canvas>
     <img id="player" src="https://i.postimg.cc/dtBqYwh3/Pixelion.png" alt="Игрок" style="z-index:2;position:absolute;" />
     <canvas id="groundCanvas" width="720" height="24" style="z-index:3;position:absolute;left:0;bottom:0;"></canvas>
@@ -189,12 +204,13 @@
     const starsCanvas = document.getElementById('stars');
     const starsCtx = starsCanvas.getContext('2d');
     let stars = [];
+    const nightOverlay = document.getElementById('nightOverlay');
 
     // Game settings
-    const gravity = 0.7;
+    const gravity = 0.6;
     const jumpStrength = 14; // slightly lower jump
     let obstacleSpeed = 3; // starting speed changed to 3
-    let nextObstacleInterval = 1200 + Math.random() * 1000; // ms, random between 1200-2200
+    let nextObstacleInterval = 1320 + Math.random() * 1080; // random between 1320-2400ms (20% less frequent)
     const groundY = 24;
     const playerSize = 72;
     let playerY = groundY;
@@ -239,7 +255,7 @@
     const scissorsImg = 'https://i.postimg.cc/NM6G70K8/ezgif-com-animated-gif-maker.gif';
     let scissorsTimer = 0;
     let scissorsStartScore = null;
-    let nextScissorsInterval = 9000 + Math.random() * 6000; // 9-15 seconds at first
+    let nextScissorsInterval = 5000 + Math.random() * 5000; // 5-10 seconds at first
 
     // Helper to check if a new scissors would overlap with any ground obstacle
     function isScissorsSafe(x, width) {
@@ -292,17 +308,17 @@
       scissors.push({ el: sc, x: x, y: altitude, width, height });
       // Set next spawn interval
       if (scissorsStartScore !== null && score - scissorsStartScore < 100) {
-        // Early: 9-15 seconds
-        nextScissorsInterval = 9000 + Math.random() * 6000;
+        // Early: 5-10 seconds (reduced from 9-15)
+        nextScissorsInterval = 5000 + Math.random() * 5000;
       } else {
-        // After 100 points since scissors started: 5-10 seconds
+        // After 100 points since scissors started: 5-10 seconds (same as early)
         nextScissorsInterval = 5000 + Math.random() * 5000;
       }
     }
 
     function updateScissors(delta) {
       scissors.forEach(sc => {
-        sc.x -= obstacleSpeed + 1.5;
+        sc.x -= (obstacleSpeed + 1.5) * (delta / 16.67); // Make frame-rate dependent
         if (isSafari) {
           // Use transform for better Safari performance
           sc.el.style.transform = `translateX(${sc.x}px)`;
@@ -502,10 +518,10 @@
       scissors = [];
       scissorsTimer = 0;
       scissorsStartScore = null;
-      nextScissorsInterval = 9000 + Math.random() * 6000;
+      nextScissorsInterval = 5000 + Math.random() * 5000;
       
       obstacleTimer = 0;
-      nextObstacleInterval = 1200 + Math.random() * 1000;
+      nextObstacleInterval = 1320 + Math.random() * 1080; // random between 1320-2400ms (20% less frequent)
       lastTime = null;
       gifObstaclesCount = 0;
       darkMode = false;
@@ -524,6 +540,7 @@
       }
       
       gameContainer.classList.remove('dark', 'night');
+      nightOverlay.classList.remove('active');
       if (h1) h1.style.color = '#ff69b4';
       if (p) p.style.color = '#ff69b4';
       if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
@@ -693,7 +710,7 @@
         // Obstacle 2 (15.png) - leave intact
         obstacle.style.bottom = (groundY - 3) + 'px';
       } else if (randomObstacleIndex === 2) {
-        // Obstacle 3 (Pixelion-7.png) - narrower hitbox width (70% X margin) + upper 20% removed
+        // Obstacle 3 (Pixelion-7.png) - much more forgiving hitbox (90% X, 90% Y margins) + upper 50% removed
         obstacle.style.bottom = groundY + 'px';
         obstacle.style.transform = 'translateY(' + (height * 0.3) + 'px)';
       } else if (randomObstacleIndex === 3) {
@@ -744,20 +761,23 @@
       
       if (obs.el.classList.contains('gif') &&
           (obs.el.src.includes('s2vTvGb0/Pixelion-600-x-1000.gif') || obs.el.src.includes('pdFKwfwx/Pixelion-600-x-1000-1.gif'))) {
-        // GIF obstacles - very forgiving hitbox (65% margins)
-        marginX = obsRect.width * 0.65;
-        marginY = obsRect.height * 0.65;
+        // GIF obstacles - very small hitbox for easy jumping (85% margins)
+        marginX = obsRect.width * 0.85;  // Increased from 0.75 to 0.85 (much smaller width hitbox)
+        marginY = obsRect.height * 0.85; // Increased from 0.8 to 0.85 (much smaller height hitbox)
+        // Remove upper 40% of hitbox to make jumping much easier
+        obsRect.y -= obsRect.height * 0.4;
+        obsRect.height *= 0.6;
       } else if (typeof obs.obstacleIndex === 'number' && obs.obstacleIndex === 1) {
         // Obstacle 2 (15.png) - extra forgiving horizontal hitbox (75% X, 60% Y)
         marginX = obsRect.width * 0.75;
         marginY = obsRect.height * 0.6;
       } else if (typeof obs.obstacleIndex === 'number' && obs.obstacleIndex === 2) {
-        // Obstacle 3 (Pixelion-7.png) - narrower hitbox width (70% X margin) + upper 20% removed
-        marginX = obsRect.width * 0.7;
-        marginY = obsRect.height * 0.6;
-        // Remove upper 20% of hitbox
-        obsRect.y -= obsRect.height * 0.2;
-        obsRect.height *= 0.8;
+        // Obstacle 3 (Pixelion-7.png) - much more forgiving hitbox (90% X, 90% Y margins) + upper 50% removed
+        marginX = obsRect.width * 0.9;  // Increased from 0.8 to 0.9 for much smaller hitbox
+        marginY = obsRect.height * 0.9; // Increased from 0.7 to 0.9 for much smaller hitbox
+        // Remove upper 50% of hitbox (increased from 20% to 50%)
+        obsRect.y -= obsRect.height * 0.5;
+        obsRect.height *= 0.5;
       } else {
         // All other obstacles - standard forgiving hitbox (60% margins)
         marginX = obsRect.width * 0.6;
@@ -861,35 +881,32 @@
         const nightStart = 300;
         const inNight = (score >= nightStart) && (Math.floor((score - nightStart) / period) % 2 === 0);
 
-        if (inNight) {
-          if (!darkMode) {
-            gameContainer.classList.add('dark');
-            if (h1) h1.style.color = '#ff69b4';
-            if (p) p.style.color = '#ff69b4';
-            if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
-            if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
-            if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
-            darkMode = true;
-            drawStars();
+        if (inNight && !darkMode) {
+          // Transitioning to night mode
+          gameContainer.classList.add('dark');
+          nightOverlay.classList.add('active');
+          if (h1) h1.style.color = '#ff69b4';
+          if (p) p.style.color = '#ff69b4';
+          if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
+          if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
+          if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
+          darkMode = true;
+        } else if (!inNight && darkMode) {
+          // Transitioning to day mode
+          gameContainer.classList.remove('dark');
+          nightOverlay.classList.remove('active');
+          if (h1) h1.style.color = '#ff69b4';
+          if (p) p.style.color = '#ff69b4';
+          if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
+          if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
+          if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
+          if (starsCtx) {
+            starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
           }
-          drawStars();
-          gameContainer.classList.add('night');
-        } else {
-          if (darkMode) {
-            gameContainer.classList.remove('dark');
-            if (h1) h1.style.color = '#ff69b4';
-            if (p) p.style.color = '#ff69b4';
-            if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
-            if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
-            if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
-            darkMode = false;
-            if (starsCtx) {
-              starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
-            }
-          }
-          drawStars();
-          gameContainer.classList.remove('night');
         }
+        
+        // Always draw stars (for smooth transitions)
+        drawStars();
 
         // Player physics
         velocityY -= gravity;
@@ -915,13 +932,13 @@
           if (obstacleTimer > adjustedInterval) {
             spawnObstacle();
             obstacleTimer = 0;
-            nextObstacleInterval = 900 + Math.random() * 1300; // random between 900-2200ms
+            nextObstacleInterval = 1320 + Math.random() * 1080; // random between 1320-2400ms (20% less frequent)
           }
         }
         
         // Use transform for better performance in Safari
         obstacles.forEach(obs => {
-          obs.x -= obstacleSpeed;
+          obs.x -= obstacleSpeed * (delta / 16.67); // Make frame-rate dependent like ground
           if (obs.el) {
             if (isSafari) {
               // Use transform for better Safari performance
@@ -971,9 +988,9 @@
         // Update high score if current score is higher
         updateHighScore(score);
 
-        // Move ground offset with the same speed as obstacles
-        groundOffset += obstacleSpeed * 0.9;
-        if (groundOffset > 64) groundOffset -= 64;
+        // Move ground offset with the same speed as obstacles (frame-rate dependent)
+        groundOffset += obstacleSpeed * (delta / 16.67); // Normalize to 60fps (16.67ms per frame)
+        if (groundOffset > 24) groundOffset -= 24; // Match dash pattern length (12+12=24)
         drawGround();
 
         if (!isGameOver && gameRunning) {
