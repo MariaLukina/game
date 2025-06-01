@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=720, initial-scale=1.0">
   <title>ПРИКЛЮЧЕНИЯ СОФИИ</title>
+  
+  <!-- Preconnect to external image hosts for faster loading -->
+  <link rel="preconnect" href="https://i.postimg.cc" crossorigin>
+  <link rel="preconnect" href="https://dl.dropboxusercontent.com" crossorigin>
+  <link rel="dns-prefetch" href="https://i.postimg.cc">
+  <link rel="dns-prefetch" href="https://dl.dropboxusercontent.com">
+  
+  <!-- Preload critical player sprites -->
+  <link rel="preload" as="image" href="https://i.postimg.cc/dtBqYwh3/Pixelion.png" crossorigin>
+  <link rel="preload" as="image" href="https://i.postimg.cc/DyDdLcHT/ezgif-com-optimize.gif" crossorigin>
+  <link rel="preload" as="image" href="https://i.postimg.cc/GpBrGDqT/Pixelion-2.png" crossorigin>
+  
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     body {
@@ -53,13 +65,14 @@
     #player {
       position: absolute;
       left: 60px;
-      bottom: 24px;
+      bottom: 21px; /* Moved down 3 pixels from 24px to 21px */
       width: 72px;
       height: 72px;
       object-fit: contain;
       image-rendering: pixelated;
       user-select: none;
       pointer-events: none;
+      z-index: 5; /* Above obstacles, below scissors */
       /* Safari performance optimizations */
       -webkit-transform: translateZ(0);
       -webkit-backface-visibility: hidden;
@@ -70,6 +83,7 @@
       bottom: 24px;
       width: 24px;
       height: 48px;
+      z-index: 4; /* Above road, below main character */
       /* Safari performance optimizations */
       -webkit-transform: translateZ(0);
       -webkit-backface-visibility: hidden;
@@ -100,6 +114,60 @@
       color: #ff69b4 !important; /* bright pink */
       transition: color 3s ease-in-out; /* Match day/night transition duration */
     }
+    #streakCounter {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #ff69b4;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 0.8em;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 8px 12px;
+      border: 2px solid #ff69b4;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      z-index: 15;
+      display: none;
+    }
+    #streakCounter.show {
+      display: block;
+      animation: streakPulse 0.5s ease-out;
+    }
+    #gameContainer.dark #streakCounter {
+      background: rgba(34, 34, 34, 0.9);
+      color: #ff69b4;
+      border-color: #ff69b4;
+    }
+    @keyframes streakPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    .flying-score {
+      position: absolute;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 1em;
+      color: #4CAF50;
+      font-weight: bold;
+      text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+      pointer-events: none;
+      z-index: 12;
+      animation: flyUp 1.5s ease-out forwards;
+    }
+    @keyframes flyUp {
+      0% {
+        opacity: 1;
+        transform: translateY(0px) scale(1);
+      }
+      20% {
+        opacity: 1;
+        transform: translateY(-20px) scale(1.2);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-80px) scale(0.8);
+      }
+    }
     #gameOver {
       display: none;
       position: absolute;
@@ -111,7 +179,7 @@
       border: 2px solid #ff69b4; /* bright pink border */
       border-radius: 8px;
       font-size: 1.5em;
-      z-index: 10;
+      z-index: 20;
       text-align: center;
     }
     #gameContainer.dark #gameOver {
@@ -142,6 +210,7 @@
       user-select: none;
       image-rendering: pixelated;
       transition: filter 0.3s;
+      z-index: 6; /* Top layer - above main character */
     }
     .styled-btn {
       font-family: 'Press Start 2P', cursive;
@@ -164,6 +233,26 @@
     }
     .obstacle.png5 { image-rendering: pixelated; object-fit: contain; }
     .obstacle.png6 { image-rendering: pixelated; object-fit: contain; }
+    
+    /* Glowing Effects */
+    .scissors-bird {
+      pointer-events: none;
+      user-select: none;
+      image-rendering: pixelated;
+      transition: filter 0.3s;
+      z-index: 6;
+      filter: drop-shadow(0 0 8px rgba(255,69,0,0.7)) drop-shadow(0 0 16px rgba(255,69,0,0.4));
+      animation: ominousGlow 2s ease-in-out infinite alternate;
+    }
+    
+    @keyframes ominousGlow {
+      0% {
+        filter: drop-shadow(0 0 8px rgba(255,69,0,0.7)) drop-shadow(0 0 16px rgba(255,69,0,0.4));
+      }
+      100% {
+        filter: drop-shadow(0 0 12px rgba(255,69,0,0.9)) drop-shadow(0 0 24px rgba(255,69,0,0.6));
+      }
+    }
   </style>
 </head>
 <body>
@@ -171,13 +260,22 @@
   <div id="highScore" style="color:#ff69b4;margin-bottom:8px;">Лучший результат: 0</div>
   <div id="score">Счёт: 0</div>
   <div id="speed" style="color:#2196f3;margin-bottom:20px;margin-top:8px;">Скорость: 0.0</div>
-  <div id="loading" style="font-family:'Press Start 2P',cursive;font-size:1.2em;color:#2196f3;margin-top:40px;">Загрузка...</div>
+  <div id="loading" style="font-family:'Press Start 2P',cursive;font-size:1.2em;color:#2196f3;margin-top:40px;">
+    <div style="margin-bottom:16px;">Загрузка...</div>
+    <div id="loadingProgress" style="width:300px;height:20px;border:2px solid #2196f3;border-radius:10px;margin:0 auto;background:#fff;position:relative;overflow:hidden;">
+      <div id="loadingBar" style="height:100%;background:linear-gradient(90deg, #2196f3, #64b5f6);width:0%;transition:width 0.3s ease;border-radius:8px;"></div>
+      <div id="loadingText" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:10px;color:#333;font-weight:bold;">0%</div>
+    </div>
+    <div id="loadingStatus" style="font-size:0.8em;margin-top:12px;color:#666;">Подготовка к игре...</div>
+  </div>
   <div id="gameContainer">
     <div id="nightOverlay"></div>
+    <div id="streakCounter">Streak: 0</div>
     <canvas id="stars" width="720" height="240" style="position:absolute;left:0;top:0;pointer-events:none;z-index:1;"></canvas>
-    <img id="player" src="https://i.postimg.cc/dtBqYwh3/Pixelion.png" alt="Игрок" style="z-index:2;position:absolute;" />
+    <canvas id="clouds" width="720" height="240" style="position:absolute;left:0;top:0;pointer-events:none;z-index:2;"></canvas>
+    <img id="player" src="https://i.postimg.cc/dtBqYwh3/Pixelion.png" alt="Игрок" style="z-index:5;position:absolute;" />
     <canvas id="groundCanvas" width="720" height="24" style="z-index:3;position:absolute;left:0;bottom:0;"></canvas>
-    <div id="gameOver" style="z-index:4;position:absolute;">
+    <div id="gameOver" style="z-index:20;position:absolute;">
       Игра окончена!<br>
       <button onclick="restartGame()">Заново</button>
     </div>
@@ -203,17 +301,20 @@
     const p = document.querySelector('p');
     const starsCanvas = document.getElementById('stars');
     const starsCtx = starsCanvas.getContext('2d');
+    const cloudsCanvas = document.getElementById('clouds');
+    const cloudsCtx = cloudsCanvas.getContext('2d');
     let stars = [];
     const nightOverlay = document.getElementById('nightOverlay');
-
+    const streakCounter = document.getElementById('streakCounter');
+    
     // Game settings
-    const gravity = 0.6;
-    const jumpStrength = 14; // slightly lower jump
+    const gravity = 0.5; // Reduced from 0.8 for frame-rate dependent physics
+    const jumpStrength = 12; // Reduced from 15 for frame-rate dependent physics
     let obstacleSpeed = 3; // starting speed changed to 3
     let nextObstacleInterval = 1320 + Math.random() * 1080; // random between 1320-2400ms (20% less frequent)
     const groundY = 24;
     const playerSize = 72;
-    let playerY = groundY;
+    let playerY = groundY - 11; // Lowered by 5 pixels from the original groundY - 6
     let velocityY = 0;
     let isJumping = false;
     let isGameOver = false;
@@ -224,6 +325,21 @@
     let animationId = null;
     let gifObstaclesCount = 0;
     let darkMode = false;
+    let flickerInterval = null;
+    let landingGracePeriod = 0; // Grace period after landing to prevent unfair collisions
+    
+    // Streak and scoring system
+    let currentStreak = 0;
+    let flyingScoreElements = [];
+    let lastObstacleCleared = null;
+    
+    // Visual effects variables
+    let sparkleParticles = [];
+    let fallingStars = [];
+    let shadowElements = [];
+    let sparkleTimer = 0;
+    let godRays = null;
+    let moonbeams = null;
 
     // Safari performance optimizations
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -257,17 +373,123 @@
     let scissorsStartScore = null;
     let nextScissorsInterval = 5000 + Math.random() * 5000; // 5-10 seconds at first
 
-    // Helper to check if a new scissors would overlap with any ground obstacle
+    // Function to create flying score popup
+    function createFlyingScore(points, x, y) {
+      const flyingScore = document.createElement('div');
+      flyingScore.className = 'flying-score';
+      flyingScore.textContent = '+' + points;
+      flyingScore.style.left = x + 'px';
+      flyingScore.style.top = y + 'px';
+      
+      gameContainer.appendChild(flyingScore);
+      flyingScoreElements.push(flyingScore);
+      
+      // Remove after animation completes
+      setTimeout(() => {
+        if (flyingScore.parentNode) {
+          flyingScore.parentNode.removeChild(flyingScore);
+        }
+        const index = flyingScoreElements.indexOf(flyingScore);
+        if (index > -1) {
+          flyingScoreElements.splice(index, 1);
+        }
+      }, 1500);
+    }
+
+    // Function to update streak counter
+    function updateStreakCounter() {
+      if (currentStreak > 0) {
+        streakCounter.textContent = 'Streak: ' + currentStreak;
+        streakCounter.classList.add('show');
+        // Trigger pulse animation
+        streakCounter.classList.remove('show');
+        setTimeout(() => streakCounter.classList.add('show'), 10);
+      } else {
+        streakCounter.classList.remove('show');
+      }
+    }
+
+    // Function to handle obstacle clearance
+    function handleObstacleClear(obstacle) {
+      currentStreak++;
+      updateStreakCounter();
+      
+      // Create flying score popup at obstacle position
+      const points = 10 + (currentStreak > 5 ? Math.min(currentStreak - 5, 10) : 0); // Bonus points for streak
+      createFlyingScore(points, obstacle.x, groundY - 40);
+      
+      // Don't add to main score - keep it separate for better game balance
+      // The main score is based on time survived (score += cappedDelta * 0.01)
+    }
+
+    // Function to reset streak
+    function resetStreak() {
+      currentStreak = 0;
+      updateStreakCounter();
+    }
+
+    // Helper to check if a new scissors would create a safe path for the player
     function isScissorsSafe(x, width) {
-      const safetyMargin = 200; // extremely large margin to prevent any overlap or close proximity
+      const playerJumpRange = 200; // Increased to match obstacle safety
+      const playerMaxJumpHeight = 120; // Maximum jump height
+      const safetyMargin = 300; // Increased from 250 to 300 to match obstacle safety
+      
       for (const obs of obstacles) {
-        // Only check obstacles that are still on screen
-        if (obs.x + obs.width < 0) continue;
-        // If the scissors would overlap horizontally with an obstacle (with margin), return false
+        // Only check obstacles that are still on screen or will be soon
+        if (obs.x + obs.width < -100) continue;
+        
+        // Check if scissors would overlap horizontally with an obstacle (with margin)
         if (x < obs.x + obs.width + safetyMargin && x + width > obs.x - safetyMargin) {
           return false;
         }
+        
+        // Advanced check: ensure player can safely jump over obstacle without hitting scissors
+        // Calculate where player would be when encountering this obstacle-scissors combo
+        const obstaclePlayerMeetX = obs.x - 60; // When player reaches obstacle
+        const scissorsPlayerMeetX = x - 60; // When player reaches scissors
+        
+        // If both are close, check if there's a safe jumping path
+        if (Math.abs(obstaclePlayerMeetX - scissorsPlayerMeetX) < playerJumpRange) {
+          // ALWAYS reject low scissors near ground obstacles (removed randomness)
+          return false; // Don't spawn scissors near obstacles - period!
+        }
       }
+      
+      // Check against other scissors to prevent clustering
+      for (const sc of scissors) {
+        if (sc.x + sc.width < -100) continue;
+        if (x < sc.x + sc.width + 200 && x + width > sc.x - 200) {
+          return false;
+        }
+      }
+      
+      return true;
+    }
+
+    // Helper to check if a new obstacle would create a safe path with nearby scissors
+    function isObstacleSafe(x, width) {
+      const playerJumpRange = 200; // Increased from 150 to 200 for more safety
+      const safetyMargin = 300; // Increased from 200 to 300 for more spacing
+      
+      for (const sc of scissors) {
+        // Only check scissors that are still on screen or will be soon
+        if (sc.x + sc.width < -100) continue;
+        
+        // Calculate interaction zone
+        const obstaclePlayerMeetX = x - 60; // When player reaches obstacle
+        const scissorsPlayerMeetX = sc.x - 60; // When player reaches scissors
+        
+        // If obstacle and scissors are close, ALWAYS reject (no exceptions)
+        if (Math.abs(obstaclePlayerMeetX - scissorsPlayerMeetX) < playerJumpRange) {
+          return false; // No obstacles near scissors - period!
+        }
+        
+        // Prevent obstacles too close to scissors horizontally (increased margin)
+        if (x < sc.x + sc.width + safetyMargin && x + width > sc.x - safetyMargin) {
+          return false;
+        }
+      }
+      
       return true;
     }
 
@@ -288,6 +510,9 @@
         x += 40; // move further right if not safe
       }
       if (!safe) return; // skip spawning if can't find a safe spot
+      
+      // Additional safety: if we have too many obstacles on screen, skip scissors entirely
+      if (obstacles.length > 2) return;
       const sc = document.createElement('img');
       sc.src = scissorsImg;
       sc.className = 'scissors-bird';
@@ -295,23 +520,54 @@
       sc.style.width = width + 'px';
       sc.style.height = height + 'px';
       sc.style.left = x + 'px';
-      // Altitude: high (80% chance) or low (20% chance, but even lower)
+      
+      // Smart altitude selection based on nearby obstacles
       let altitude;
-      if (Math.random() < 0.8) {
-        altitude = 160 + Math.random() * 20; // high: 160-180 px from bottom
-      } else {
-        altitude = 60 + Math.random() * 20; // low: 60-80 px from bottom
+      let hasNearbyGroundObstacles = false;
+      
+      // Check for ground obstacles within jumping range
+      for (const obs of obstacles) {
+        if (obs.x + obs.width < 0) continue;
+        const distanceToObstacle = Math.abs(obs.x - x);
+        if (distanceToObstacle < 300) { // Within interaction range
+          hasNearbyGroundObstacles = true;
+          break;
+        }
       }
+      
+      if (hasNearbyGroundObstacles) {
+        // If there are ground obstacles nearby, strongly prefer high altitude
+        if (Math.random() < 0.95) { // 95% chance for high when obstacles nearby
+          altitude = 160 + Math.random() * 20; // high: 160-180 px from bottom
+        } else {
+          altitude = 60 + Math.random() * 20; // low: 60-80 px from bottom
+        }
+      } else {
+        // No nearby obstacles, normal distribution
+        if (Math.random() < 0.8) {
+          altitude = 160 + Math.random() * 20; // high: 160-180 px from bottom
+        } else {
+          altitude = 60 + Math.random() * 20; // low: 60-80 px from bottom
+        }
+      }
+      
       sc.style.bottom = altitude + 'px';
-      sc.style.zIndex = 2;
+      sc.style.zIndex = 6; // Top layer - above main character
       gameContainer.appendChild(sc);
-      scissors.push({ el: sc, x: x, y: altitude, width, height });
-      // Set next spawn interval
+      scissors.push({ el: sc, x: x, y: altitude, width, height, cleared: false });
+      // Set next spawn interval with increasing frequency after score 700
       if (scissorsStartScore !== null && score - scissorsStartScore < 100) {
         // Early: 5-10 seconds (reduced from 9-15)
         nextScissorsInterval = 5000 + Math.random() * 5000;
+      } else if (score >= 700) {
+        // After score 700: gradually increase frequency (shorter intervals)
+        const progressAfter700 = Math.min((score - 700) / 300, 1); // 0 to 1 over next 300 points
+        const minInterval = 3000; // Minimum 3 seconds
+        const maxInterval = 8000; // Maximum 8 seconds
+        const baseInterval = maxInterval - (progressAfter700 * (maxInterval - minInterval));
+        nextScissorsInterval = baseInterval + Math.random() * 2000; // Add some randomness
       } else {
-        // After 100 points since scissors started: 5-10 seconds (same as early)
+        // Normal frequency: 5-10 seconds
         nextScissorsInterval = 5000 + Math.random() * 5000;
       }
     }
@@ -329,9 +585,17 @@
       for (let i = scissors.length - 1; i >= 0; i--) {
         const sc = scissors[i];
         if (checkScissorsCollision(sc)) {
+          resetStreak(); // Reset streak on collision
           endGame();
           return;
         }
+        
+        // Check if scissors was cleared (passed the player)
+        if (sc.x + sc.width < 60 && !sc.cleared) { // Player is at x=60
+          sc.cleared = true; // Mark as cleared to avoid multiple triggers
+          handleObstacleClear(sc); // Same scoring as obstacles
+        }
+        
         if (sc.x + sc.width < 0) {
           sc.el.remove();
           scissors.splice(i, 1);
@@ -340,18 +604,37 @@
     }
 
     function checkScissorsCollision(sc) {
+      // Landing grace period - don't check collisions for 50ms after landing
+      if (landingGracePeriod > 0) return false;
+      
       const playerRect = {
         x: 60,
         y: playerY,
         width: playerSize,
         height: playerSize
       };
-      // Shrink the scissors hitbox to 55% (45% margin on all sides)
-      const marginX = sc.width * 0.45;
-      const marginY = sc.height * 0.45;
+      
+      // Safety check: only check collision if scissors are close to player horizontally
+      const horizontalDistance = Math.abs(sc.x - playerRect.x);
+      
+      // Extra safety buffer for Safari transform rendering delays
+      const safetDistance = isSafari ? 110 : 100; // Extra 10px buffer for Safari
+      
+      if (horizontalDistance > safetDistance) { // Only check when very close
+        return false;
+      }
+      
+      // Shrink the scissors hitbox to 35% (65% margin on all sides for more forgiveness)
+      const marginX = sc.width * 0.65;
+      const marginY = sc.height * 0.65;
+      
+      // Convert scissors bottom-based position to match player coordinate system
+      // sc.y is the altitude (distance from bottom), so we need to convert it
+      const scissorsY = sc.y; // This is already the correct Y position (distance from bottom)
+      
       const scRect = {
         x: sc.x + marginX,
-        y: sc.y + marginY,
+        y: scissorsY + marginY,
         width: sc.width - 2 * marginX,
         height: sc.height - 2 * marginY
       };
@@ -489,7 +772,7 @@
 
     function resetGame() {
       generateStars();
-      playerY = groundY - 3; // Lifted by 1 pixel (was groundY - 4)
+      playerY = groundY - 11; // Lowered by 5 pixels from the original groundY - 6
       velocityY = 0;
       isJumping = false;
       isGameOver = false;
@@ -526,6 +809,57 @@
       gifObstaclesCount = 0;
       darkMode = false;
       
+      // Stop flicker effect if running
+      if (flickerInterval) {
+        clearInterval(flickerInterval);
+        flickerInterval = null;
+      }
+      
+      // Reset landing grace period
+      landingGracePeriod = 0;
+      
+      // Reset streak and clean up flying scores
+      currentStreak = 0;
+      updateStreakCounter();
+      flyingScoreElements.forEach(element => {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+      });
+      flyingScoreElements = [];
+      
+      // Clean up visual effects
+      sparkleParticles.forEach(sparkle => {
+        if (sparkle.parentNode) {
+          sparkle.parentNode.removeChild(sparkle);
+        }
+      });
+      sparkleParticles = [];
+      
+      fallingStars.forEach(star => {
+        if (star.parentNode) {
+          star.parentNode.removeChild(star);
+        }
+      });
+      fallingStars = [];
+      
+      shadowElements.forEach(shadow => {
+        if (shadow.parentNode) {
+          shadow.parentNode.removeChild(shadow);
+        }
+      });
+      shadowElements = [];
+      
+      sparkleTimer = 0;
+      
+      // Reset lighting effects
+      if (godRays) {
+        godRays.classList.remove('active');
+      }
+      if (moonbeams) {
+        moonbeams.classList.remove('active');
+      }
+      
       if (gameOverDisplay) {
         gameOverDisplay.style.display = 'none';
       }
@@ -533,14 +867,21 @@
       if (player) {
         player.style.bottom = playerY + 'px';
         player.src = playerStandingImg; // Start with standing image
+        player.style.opacity = '1'; // Reset opacity to normal
+        player.style.display = 'block'; // Ensure player is visible
+        player.style.left = '60px';
+        player.style.position = 'absolute';
+        player.style.zIndex = '5';
       }
       
       if (scoreDisplay) {
         scoreDisplay.textContent = 'Счёт: 0';
       }
       
-      gameContainer.classList.remove('dark', 'night');
-      nightOverlay.classList.remove('active');
+      gameContainer.classList.remove('dark');
+      if (nightOverlay) {
+        nightOverlay.classList.remove('active');
+      }
       if (h1) h1.style.color = '#ff69b4';
       if (p) p.style.color = '#ff69b4';
       if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
@@ -616,10 +957,29 @@
       }
     }
 
+    // Debug function to log game state
+    function debugGameState() {
+      console.log('=== GAME DEBUG INFO ===');
+      console.log(`Player Y: ${playerY}, Velocity Y: ${velocityY}, isJumping: ${isJumping}`);
+      console.log(`Game Running: ${gameRunning}, Game Started: ${gameStarted}`);
+      console.log(`Obstacle Speed: ${obstacleSpeed}, Score: ${Math.floor(score)}`);
+      console.log(`Active Obstacles: ${obstacles.length}, Active Scissors: ${scissors.length}`);
+      console.log(`Landing Grace Period: ${landingGracePeriod}ms`);
+      console.log('--- ASSET CACHE STATUS ---');
+      console.log(`Cache size: ${assetCache.size}`);
+      console.log(`Sky overlay cached: ${assetCache.has('https://i.postimg.cc/Fzz3Jfxz/13-1.png')}`);
+      console.log(`Night stars cached: ${assetCache.has('https://i.postimg.cc/pThkg1gq/18.png')}`);
+      console.log(`Sky overlay fallback complete: ${skyOverlayImg?.complete}`);
+      console.log('========================');
+    }
+
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'ArrowUp') {
         e.preventDefault();
         jump();
+      } else if (e.code === 'KeyD' && e.ctrlKey) {
+        e.preventDefault();
+        debugGameState();
       }
     });
 
@@ -645,7 +1005,7 @@
       let randomObstacleIndex = -1; // Initialize for all obstacle types
       
       // Determine if it's night mode
-      const period = 200;
+      const period = 300; // Changed from 200 to 300 points per cycle
       const nightStart = 300;
       const inNight = (score >= nightStart) && (Math.floor((score - nightStart) / period) % 2 === 0);
       
@@ -668,9 +1028,9 @@
         
         // Fixed sizes to avoid distortion, maintain aspect ratios
         switch(randomObstacleIndex) {
-          case 0: // 16.png
-            height = 48;
-            width = 32;
+          case 0: // 16.png - Increased by 15%
+            height = 55; // Increased from 48 (48 * 1.15 = 55.2 ≈ 55)
+            width = 37;  // Increased from 32 (32 * 1.15 = 36.8 ≈ 37)
             break;
           case 1: // 15.png - 20% bigger
             height = 48; // 40 * 1.2
@@ -680,9 +1040,9 @@
             height = 68; // Increased from 56
             width = 44;  // Increased from 36
             break;
-          case 3: // 17.png
-            height = 44;
-            width = 28;
+          case 3: // 17.png - Increased by 15%
+            height = 51; // Increased from 44 (44 * 1.15 = 50.6 ≈ 51)
+            width = 32;  // Increased from 28 (28 * 1.15 = 32.2 ≈ 32)
             break;
           default:
             height = 48;
@@ -697,25 +1057,30 @@
       const offsetAlign = groundOffset % patternLength;
       const spawnX = gameContainer.offsetWidth + offsetAlign;
       
+      // Safety check: don't spawn if it would create impossible situation with scissors
+      if (!isObstacleSafe(spawnX, width)) {
+        return; // Skip spawning this obstacle
+      }
+      
       obstacle.style.left = spawnX + 'px';
       
       // Position obstacles based on type
       if (randomObstacleIndex === -1) {
-        // GIF obstacles - lifted by 3 more pixels from previous position
-        obstacle.style.bottom = (groundY - 6) + 'px';
+        // GIF obstacles - lowered by 3 pixels (was groundY - 6, now groundY - 9)
+        obstacle.style.bottom = (groundY - 9) + 'px';
       } else if (randomObstacleIndex === 0) {
-        // Obstacle 1 (16.png) - lifted by 3 pixels (was groundY - 10, now groundY - 7)
-        obstacle.style.bottom = (groundY - 7) + 'px';
+        // Obstacle 1 (16.png) - lowered by 10 pixels (was groundY - 6, now groundY - 16)
+        obstacle.style.bottom = (groundY - 16) + 'px';
       } else if (randomObstacleIndex === 1) {
-        // Obstacle 2 (15.png) - leave intact
-        obstacle.style.bottom = (groundY - 3) + 'px';
+        // Obstacle 2 (15.png) - moved down 3 pixels (was groundY - 3, now groundY - 6)
+        obstacle.style.bottom = (groundY - 6) + 'px';
       } else if (randomObstacleIndex === 2) {
         // Obstacle 3 (Pixelion-7.png) - much more forgiving hitbox (90% X, 90% Y margins) + upper 50% removed
         obstacle.style.bottom = groundY + 'px';
         obstacle.style.transform = 'translateY(' + (height * 0.3) + 'px)';
       } else if (randomObstacleIndex === 3) {
-        // Obstacle 4 (17.png) - lifted by 3 pixels (was groundY - 10, now groundY - 7)
-        obstacle.style.bottom = (groundY - 7) + 'px';
+        // Obstacle 4 (17.png) - lowered by 10 pixels (was groundY - 6, now groundY - 16)
+        obstacle.style.bottom = (groundY - 16) + 'px';
       } else {
         // Fallback for any other obstacles - position on ground
         obstacle.style.bottom = groundY + 'px';
@@ -725,6 +1090,7 @@
       obstacle.style.width = width + 'px';
       obstacle.style.objectFit = 'contain'; // Prevent distortion
       obstacle.style.imageRendering = 'pixelated';
+      obstacle.style.zIndex = 4; // Above road, below main character
       
       // Add error handling for image loading
       obstacle.onerror = function() {
@@ -736,11 +1102,14 @@
       };
       
       gameContainer.appendChild(obstacle);
-      obstacles.push({ el: obstacle, x: spawnX, width, height, obstacleIndex: randomObstacleIndex });
+      obstacles.push({ el: obstacle, x: spawnX, width, height, obstacleIndex: randomObstacleIndex, cleared: false });
     }
 
     function checkCollision(obs) {
       if (!obs || !obs.el) return false;
+      
+      // Landing grace period - don't check collisions for 25ms after landing
+      if (landingGracePeriod > 0) return false;
       
       const playerRect = {
         x: 60,
@@ -748,6 +1117,16 @@
         width: playerSize,
         height: playerSize
       };
+      
+      // Safety check: only check collision if obstacle is close to player horizontally
+      const horizontalDistance = Math.abs(obs.x - playerRect.x);
+      
+      // Extra safety for obstacle 3 due to its complex positioning
+      const safetyDistance = (typeof obs.obstacleIndex === 'number' && obs.obstacleIndex === 2) ? 60 : 80;
+      
+      if (horizontalDistance > safetyDistance) { // Only check when very close
+        return false;
+      }
       
       let obsRect = {
         x: obs.x,
@@ -761,23 +1140,95 @@
       
       if (obs.el.classList.contains('gif') &&
           (obs.el.src.includes('s2vTvGb0/Pixelion-600-x-1000.gif') || obs.el.src.includes('pdFKwfwx/Pixelion-600-x-1000-1.gif'))) {
-        // GIF obstacles - very small hitbox for easy jumping (85% margins)
-        marginX = obsRect.width * 0.85;  // Increased from 0.75 to 0.85 (much smaller width hitbox)
-        marginY = obsRect.height * 0.85; // Increased from 0.8 to 0.85 (much smaller height hitbox)
-        // Remove upper 40% of hitbox to make jumping much easier
-        obsRect.y -= obsRect.height * 0.4;
-        obsRect.height *= 0.6;
+        // GIF obstacles - ultra-restrictive collision only at front-center
+        // Only allow collision in a very narrow zone at the front of the obstacle
+        const obstacleCenter = obs.x + (obs.width / 2);
+        const playerCenter = playerRect.x + (playerRect.width / 2);
+        const horizontalDistance = Math.abs(playerCenter - obstacleCenter);
+        
+        // Only check collision if player is very close to obstacle center (within 20px)
+        if (horizontalDistance > 20) {
+          return false; // Too far from obstacle center
+        }
+        
+        // Additional check: player must be in front of or overlapping with obstacle front half
+        if (playerCenter > obstacleCenter + 10) {
+          return false; // Player is behind the center, no collision
+        }
+        
+        // GIF obstacles - account for lowered position (groundY - 9)
+        obsRect.y = groundY - 9; // Match the visual position
+        
+        // Use ultra-small hitbox - 95% margins = 5% size
+        marginX = obsRect.width * 0.95;  
+        marginY = obsRect.height * 0.95; 
+        
+        // Use only bottom 20% for collision
+        obsRect.height *= 0.2;
       } else if (typeof obs.obstacleIndex === 'number' && obs.obstacleIndex === 1) {
-        // Obstacle 2 (15.png) - extra forgiving horizontal hitbox (75% X, 60% Y)
-        marginX = obsRect.width * 0.75;
+        // Obstacle 2 (15.png) - COMPLETELY REDONE HITBOX to fix landing behind issues
+        // Use center-focused collision with ultra-restrictive detection
+        const obstacleCenter = obs.x + (obs.width / 2);
+        const playerCenter = playerRect.x + (playerRect.width / 2);
+        const horizontalDistance = Math.abs(playerCenter - obstacleCenter);
+        
+        // Only check collision if player is very close to obstacle center (within 25px)
+        if (horizontalDistance > 25) {
+          return false; // Too far from obstacle center
+        }
+        
+        // Additional check: player must be in front of or overlapping with obstacle front half
+        if (playerCenter > obstacleCenter + 15) {
+          return false; // Player is behind the center, no collision
+        }
+        
+        // Account for moved down position (groundY - 6)
+        obsRect.y = groundY - 6; // Match the visual position
+        
+        // Use ultra-restrictive hitbox - 90% margins = 10% size (much smaller than before)
+        marginX = obsRect.width * 0.9;  
+        marginY = obsRect.height * 0.9; 
+        
+        // Use only bottom 30% for collision to prevent unfair top hits
+        obsRect.height *= 0.3;
+      } else if (typeof obs.obstacleIndex === 'number' && obs.obstacleIndex === 0) {
+        // Obstacle 1 (16.png) - COMPLETELY REDONE HITBOX to fix landing behind issues
+        // Use center-focused collision with ultra-restrictive detection
+        const obstacleCenter = obs.x + (obs.width / 2);
+        const playerCenter = playerRect.x + (playerRect.width / 2);
+        const horizontalDistance = Math.abs(playerCenter - obstacleCenter);
+        
+        // Only check collision if player is very close to obstacle center (within 25px)
+        if (horizontalDistance > 25) {
+          return false; // Too far from obstacle center
+        }
+        
+        // Additional check: player must be in front of or overlapping with obstacle front half
+        if (playerCenter > obstacleCenter + 15) {
+          return false; // Player is behind the center, no collision
+        }
+        
+        // Account for lowered position (groundY - 16)
+        obsRect.y = groundY - 16; // Match the visual position
+        
+        // Use ultra-restrictive hitbox - 90% margins = 10% size (much smaller than before)
+        marginX = obsRect.width * 0.9;  
+        marginY = obsRect.height * 0.9; 
+        
+        // Use only bottom 30% for collision to prevent unfair top hits
+        obsRect.height *= 0.3;
+      } else if (typeof obs.obstacleIndex === 'number' && obs.obstacleIndex === 3) {
+        // Obstacle 4 (17.png) - account for lowered position (groundY - 16)
+        obsRect.y = groundY - 16; // Match the visual position
+        marginX = obsRect.width * 0.6;
         marginY = obsRect.height * 0.6;
       } else if (typeof obs.obstacleIndex === 'number' && obs.obstacleIndex === 2) {
-        // Obstacle 3 (Pixelion-7.png) - much more forgiving hitbox (90% X, 90% Y margins) + upper 50% removed
-        marginX = obsRect.width * 0.9;  // Increased from 0.8 to 0.9 for much smaller hitbox
-        marginY = obsRect.height * 0.9; // Increased from 0.7 to 0.9 for much smaller hitbox
-        // Remove upper 50% of hitbox (increased from 20% to 50%)
-        obsRect.y -= obsRect.height * 0.5;
-        obsRect.height *= 0.5;
+        // Obstacle 3 (Pixelion-7.png) - Use obstacle 1's logic with slight Y adjustment
+        // Obstacle 1 uses groundY - 16, but obstacle 3 is visually lower due to transform
+        // So use a position that's slightly lower than obstacle 1
+        obsRect.y = groundY - 10; // Slightly higher than groundY - 16 to account for visual offset
+        marginX = obsRect.width * 0.6; // Same as obstacle 1
+        marginY = obsRect.height * 0.6; // Same as obstacle 1
       } else {
         // All other obstacles - standard forgiving hitbox (60% margins)
         marginX = obsRect.width * 0.6;
@@ -798,29 +1249,65 @@
     }
 
     function drawStars() {
-      if (!starsCtx) return;
+      if (!starsCtx || !cloudsCtx) return;
       
+      // Clear both canvases
       starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+      cloudsCtx.clearRect(0, 0, cloudsCanvas.width, cloudsCanvas.height);
       
       // Determine if it's night mode
-      const period = 200;
+      const period = 300; // Changed from 200 to 300 points per cycle
       const nightStart = 300;
       const inNight = (score >= nightStart) && (Math.floor((score - nightStart) / period) % 2 === 0);
       
-      // Draw night stars first (behind clouds)
-      if (inNight && nightStarsImg.complete) {
-        starsCtx.save();
-        starsCtx.globalAlpha = 1.0;
-        starsCtx.drawImage(nightStarsImg, 0, 0, starsCanvas.width, starsCanvas.height);
-        starsCtx.restore();
+      // Calculate fade-in for stars 2 seconds before night mode
+      let starOpacity = 0;
+      if (inNight) {
+        starOpacity = 1.0; // Full opacity during night
+      } else if (score >= nightStart) {
+        // Check if we're approaching night mode (2 seconds before transition)
+        const cyclePosition = (score - nightStart) % period;
+        const timeUntilNight = period - cyclePosition;
+        const scorePerSecond = obstacleSpeed * 0.6; // Approximate score per second
+        const secondsUntilNight = timeUntilNight / scorePerSecond;
+        
+        if (secondsUntilNight <= 2) {
+          // Fade in stars over 2 seconds before night transition
+          starOpacity = (2 - secondsUntilNight) / 2; // 0 to 1 over 2 seconds
+        }
       }
       
-      // Draw sky overlay (clouds) on top of stars
-      if (skyOverlayImg.complete) {
-        starsCtx.save();
-        starsCtx.globalAlpha = 0.8;
-        starsCtx.drawImage(skyOverlayImg, 0, 0, starsCanvas.width, starsCanvas.height);
-        starsCtx.restore();
+      // Draw night stars on the stars canvas (bottom layer) with fade-in effect
+      const cachedNightStars = assetCache.get('https://i.postimg.cc/pThkg1gq/18.png');
+      if ((inNight || starOpacity > 0) && (cachedNightStars || nightStarsImg.complete)) {
+        const imageToUse = cachedNightStars || nightStarsImg;
+        try {
+          starsCtx.save();
+          starsCtx.globalAlpha = starOpacity;
+          starsCtx.drawImage(imageToUse, 0, 0, starsCanvas.width, starsCanvas.height);
+          starsCtx.restore();
+        } catch (e) {
+          console.warn('Failed to draw night stars:', e);
+        }
+      }
+      
+      // Draw sky overlay (clouds) on the clouds canvas (above stars) - ALWAYS draw during day mode
+      const cachedSkyOverlay = assetCache.get('https://i.postimg.cc/Fzz3Jfxz/13-1.png');
+      const skyImageAvailable = cachedSkyOverlay || (skyOverlayImg && skyOverlayImg.complete);
+      
+      if (skyImageAvailable) {
+        const imageToUse = cachedSkyOverlay || skyOverlayImg;
+        try {
+          cloudsCtx.save();
+          cloudsCtx.globalAlpha = 0.8;
+          cloudsCtx.drawImage(imageToUse, 0, 0, cloudsCanvas.width, cloudsCanvas.height);
+          cloudsCtx.restore();
+          console.log('☁️ Clouds drawn successfully');
+        } catch (e) {
+          console.warn('Failed to draw clouds:', e);
+        }
+      } else {
+        console.warn('⚠️ Sky overlay image not available - cached:', !!cachedSkyOverlay, 'fallback complete:', skyOverlayImg?.complete);
       }
     }
 
@@ -869,6 +1356,9 @@
         if (!lastTime) lastTime = timestamp;
         const delta = timestamp - lastTime;
         lastTime = timestamp;
+        
+        // Cap delta to prevent unfair behavior during lag spikes (max 100ms = ~10fps minimum)
+        const cappedDelta = Math.min(delta, 100);
 
         // Gradually increase speed over time
         obstacleSpeed = Math.min(3 + score * 0.001, 7.0);
@@ -876,47 +1366,67 @@
           speedDisplay.textContent = 'Скорость: ' + obstacleSpeed.toFixed(1);
         }
 
-        // Alternate night and day every 200 points, starting at 300
-        const period = 200;
+        // Alternate night and day every 300 points, starting at 300
+        const period = 300;
         const nightStart = 300;
         const inNight = (score >= nightStart) && (Math.floor((score - nightStart) / period) % 2 === 0);
 
         if (inNight && !darkMode) {
           // Transitioning to night mode
           gameContainer.classList.add('dark');
-          nightOverlay.classList.add('active');
+          if (nightOverlay) {
+            nightOverlay.classList.add('active');
+          }
           if (h1) h1.style.color = '#ff69b4';
           if (p) p.style.color = '#ff69b4';
           if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
           if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
           if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
           darkMode = true;
+          if (starsCtx) {
+            starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+          }
+          if (cloudsCtx) {
+            cloudsCtx.clearRect(0, 0, cloudsCanvas.width, cloudsCanvas.height);
+          }
         } else if (!inNight && darkMode) {
           // Transitioning to day mode
           gameContainer.classList.remove('dark');
-          nightOverlay.classList.remove('active');
+          if (nightOverlay) {
+            nightOverlay.classList.remove('active');
+          }
           if (h1) h1.style.color = '#ff69b4';
           if (p) p.style.color = '#ff69b4';
           if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
           if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
           if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
+          darkMode = false;
           if (starsCtx) {
             starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+          }
+          if (cloudsCtx) {
+            cloudsCtx.clearRect(0, 0, cloudsCanvas.width, cloudsCanvas.height);
           }
         }
         
         // Always draw stars (for smooth transitions)
         drawStars();
 
-        // Player physics
-        velocityY -= gravity;
-        playerY += velocityY;
+        // Player physics - make frame-rate dependent for consistent timing
+        velocityY -= gravity * (cappedDelta / 16.67); // Frame-rate dependent gravity
+        playerY += velocityY * (cappedDelta / 16.67);  // Frame-rate dependent movement
         
-        if (playerY <= groundY - 3) { // Updated to match new starting position
-          playerY = groundY - 3;
+        // Update landing grace period
+        if (landingGracePeriod > 0) {
+          landingGracePeriod -= cappedDelta;
+        }
+        
+        if (playerY <= groundY - 11) { // Updated to match new starting position
+          playerY = groundY - 11;
           velocityY = 0;
           if (isJumping) {
             isJumping = false;
+            landingGracePeriod = 25; // Reduced from 50ms to 25ms for better responsiveness
             updatePlayerSprite(); // Switch back to running when landing
           }
         }
@@ -927,8 +1437,12 @@
 
         // Obstacles - only spawn if game is running
         if (gameRunning) {
-          obstacleTimer += delta;
-          const adjustedInterval = nextObstacleInterval * (isSafari ? 1.2 : 1.0); // 20% longer intervals in Safari
+          obstacleTimer += cappedDelta;
+          
+          // Increase spawn intervals when scissors are active to prevent overlapping
+          const scissorsActivePenalty = scissors.length > 0 ? 1.5 : 1.0;
+          const adjustedInterval = nextObstacleInterval * (isSafari ? 1.2 : 1.0) * scissorsActivePenalty;
+          
           if (obstacleTimer > adjustedInterval) {
             spawnObstacle();
             obstacleTimer = 0;
@@ -938,7 +1452,7 @@
         
         // Use transform for better performance in Safari
         obstacles.forEach(obs => {
-          obs.x -= obstacleSpeed * (delta / 16.67); // Make frame-rate dependent like ground
+          obs.x -= obstacleSpeed * (cappedDelta / 16.67); // Make frame-rate dependent like ground
           if (obs.el) {
             if (isSafari) {
               // Use transform for better Safari performance
@@ -949,6 +1463,38 @@
           }
         });
         
+        // Safety check: Remove any scissors that are now too close to obstacles
+        // This prevents impossible situations that could occur due to timing
+        for (let i = scissors.length - 1; i >= 0; i--) {
+          const sc = scissors[i];
+          let tooClose = false;
+          
+          for (const obs of obstacles) {
+            const horizontalDistance = Math.abs(sc.x - obs.x);
+            const playerInteractionZone = 150; // Reduced from 200 to be less aggressive
+            
+            if (horizontalDistance < playerInteractionZone) {
+              // Check if this creates an impossible scenario
+              const playerMeetsObstacle = obs.x - 60;
+              const playerMeetsScissors = sc.x - 60;
+              
+              if (Math.abs(playerMeetsObstacle - playerMeetsScissors) < 100) { // Reduced from 150 to 100
+                tooClose = true;
+                break;
+              }
+            }
+          }
+          
+          if (tooClose) {
+            // Remove the scissors to prevent impossible situation
+            if (sc.el && sc.el.parentNode) {
+              sc.el.remove();
+            }
+            scissors.splice(i, 1);
+          }
+        }
+
+        // Original obstacle collision and cleanup logic
         for (let i = obstacles.length - 1; i >= 0; i--) {
           const obs = obstacles[i];
           if (!obs || !obs.el) {
@@ -957,8 +1503,15 @@
           }
           
           if (checkCollision(obs)) {
+            resetStreak(); // Reset streak on collision
             endGame();
             return;
+          }
+          
+          // Check if obstacle was cleared (passed the player)
+          if (obs.x + obs.width < 60 && !obs.cleared) { // Player is at x=60
+            obs.cleared = true; // Mark as cleared to avoid multiple triggers
+            handleObstacleClear(obs);
           }
           
           if (obs.x + obs.width < 0) {
@@ -971,16 +1524,16 @@
 
         // Spawn scissors (birds) after score 200, with random interval
         if (score >= 200 && gameRunning) {
-          scissorsTimer += delta;
+          scissorsTimer += cappedDelta;
           if (scissorsTimer > nextScissorsInterval) {
             spawnScissors();
             scissorsTimer = 0;
           }
         }
-        updateScissors(delta);
+        updateScissors(cappedDelta);
 
         // Score
-        score += delta * 0.01;
+        score += cappedDelta * 0.01;
         if (scoreDisplay) {
           scoreDisplay.textContent = 'Счёт: ' + Math.floor(score);
         }
@@ -989,7 +1542,7 @@
         updateHighScore(score);
 
         // Move ground offset with the same speed as obstacles (frame-rate dependent)
-        groundOffset += obstacleSpeed * (delta / 16.67); // Normalize to 60fps (16.67ms per frame)
+        groundOffset += obstacleSpeed * (cappedDelta / 16.67); // Normalize to 60fps (16.67ms per frame)
         if (groundOffset > 24) groundOffset -= 24; // Match dash pattern length (12+12=24)
         drawGround();
 
@@ -1014,6 +1567,22 @@
       if (isGameOver) return; // Prevent multiple calls
       isGameOver = true;
       gameRunning = false;
+      
+      // Change player to jumping image and start flicker effect
+      if (player) {
+        player.src = playerJumpingImg;
+        player.style.opacity = '1';
+        
+        // Start flicker animation - toggle between 100% and 50% opacity every 0.3 seconds
+        flickerInterval = setInterval(() => {
+          if (!player) return; // Safety check in case player element is removed
+          if (player.style.opacity === '0.5') {
+            player.style.opacity = '1';
+          } else {
+            player.style.opacity = '0.5';
+          }
+        }, 300);
+      }
       
       if (gameOverDisplay) {
         gameOverDisplay.style.display = 'block';
@@ -1061,82 +1630,318 @@
       } catch (e) {
         console.warn('Could not save to localStorage:', e);
       }
-      location.reload();
+      
+      // Use resetGame() instead of location.reload() to preserve asset cache
+      stopBackgroundMusic();
+      resetGame();
+      
+      // Ensure clouds are drawn immediately on restart
+      setTimeout(() => {
+        drawStars();
+        console.log('🔄 Game restarted - clouds redrawn');
+      }, 100);
     };
 
-    // Asset URLs to preload
-    const assetUrls = [
-      'https://i.postimg.cc/s2vTvGb0/Pixelion-600-x-1000.gif',
-      'https://i.postimg.cc/pdFKwfwx/Pixelion-600-x-1000-1.gif',
-      'https://i.postimg.cc/NM6G70K8/ezgif-com-animated-gif-maker.gif',
-      'https://i.postimg.cc/dtBqYwh3/Pixelion.png',
-      'https://i.postimg.cc/DyDdLcHT/ezgif-com-optimize.gif',
-      'https://i.postimg.cc/GpBrGDqT/Pixelion-2.png',
-      'https://i.postimg.cc/Fzz3Jfxz/13-1.png',
-      'https://i.postimg.cc/pThkg1gq/18.png',
-      'https://i.postimg.cc/vHNFnpGZ/16.png',
-      'https://i.postimg.cc/8CLqqcM7/15.png',
-      'https://i.postimg.cc/85DqDGmt/Pixelion-7.png',
-      'https://i.postimg.cc/FzwprgQN/17.png'
+    // Optimized asset loading with prioritization
+    const criticalAssets = [
+      'https://i.postimg.cc/dtBqYwh3/Pixelion.png', // Standing player
+      'https://i.postimg.cc/DyDdLcHT/ezgif-com-optimize.gif', // Running player
+      'https://i.postimg.cc/GpBrGDqT/Pixelion-2.png', // Jumping player
     ];
     
-    const audioUrls = [
-      'https://dl.dropboxusercontent.com/scl/fi/u8vy9c7rk8uh86l4iy2ef/Swan-Lake-Theme.mp3?rlkey=c9gl4gd9i4jy5f25esiqd1ra3&st=jla22prl',
-      'https://dl.dropboxusercontent.com/scl/fi/03ewjm0np47rvxwvkw4fr/080047_lose_funny_retro_video-game-80925.mp3?rlkey=f5sz95h1alf549ppriqkv7ees&st=8t37iozp',
-      'https://dl.dropboxusercontent.com/scl/fi/ezrm6z3cx6zia9ski74nd/retro-jump-1-236684.mp3?rlkey=cbxvo5jhokcw9f68d4plxeuuf&st=b95r8mro',
+    const gameplayAssets = [
+      'https://i.postimg.cc/vHNFnpGZ/16.png', // Obstacle 1
+      'https://i.postimg.cc/8CLqqcM7/15.png', // Obstacle 2
+      'https://i.postimg.cc/85DqDGmt/Pixelion-7.png', // Obstacle 3
+      'https://i.postimg.cc/FzwprgQN/17.png', // Obstacle 4
+      'https://i.postimg.cc/s2vTvGb0/Pixelion-600-x-1000.gif', // GIF obstacle day
+    ];
+    
+    const enhancementAssets = [
+      'https://i.postimg.cc/pdFKwfwx/Pixelion-600-x-1000-1.gif', // GIF obstacle night
+      'https://i.postimg.cc/NM6G70K8/ezgif-com-animated-gif-maker.gif', // Scissors
+      'https://i.postimg.cc/Fzz3Jfxz/13-1.png', // Sky overlay (clouds)
+      'https://i.postimg.cc/pThkg1gq/18.png', // Night stars
+    ];
+    
+    const audioAssets = [
+      { url: 'https://dl.dropboxusercontent.com/scl/fi/ezrm6z3cx6zia9ski74nd/retro-jump-1-236684.mp3?rlkey=cbxvo5jhokcw9f68d4plxeuuf&st=b95r8mro', critical: true }, // Jump sound
+      { url: 'https://dl.dropboxusercontent.com/scl/fi/03ewjm0np47rvxwvkw4fr/080047_lose_funny_retro_video-game-80925.mp3?rlkey=f5sz95h1alf549ppriqkv7ees&st=8t37iozp', critical: false }, // Lose sound
+      { url: 'https://dl.dropboxusercontent.com/scl/fi/u8vy9c7rk8uh86l4iy2ef/Swan-Lake-Theme.mp3?rlkey=c9gl4gd9i4jy5f25esiqd1ra3&st=jla22prl', critical: false }, // Background music
     ];
 
-    function preloadAssets(callback) {
-      let loaded = 0;
-      const total = assetUrls.length + audioUrls.length;
-      
-      function check() {
-        loaded++;
-        if (loaded === total) {
-          callback();
-        }
+    let assetsLoaded = {
+      critical: 0,
+      gameplay: 0,
+      enhancement: 0,
+      audio: 0
+    };
+
+    // Asset cache for better performance
+    const assetCache = new Map();
+    let totalLoadTime = 0;
+
+    function loadAssetWithTimeout(url, type = 'image', timeout = 5000, priority = 'auto') {
+      // Return cached asset if available
+      if (assetCache.has(url)) {
+        return Promise.resolve(assetCache.get(url));
       }
-      
-      assetUrls.forEach(url => {
-        const img = new Image();
-        img.onload = check;
-        img.onerror = () => {
-          console.warn('Failed to load image:', url);
-          check();
+
+      return new Promise((resolve) => {
+        let asset;
+        let timer;
+        const startTime = performance.now();
+        
+        const cleanup = (success = true) => {
+          if (timer) clearTimeout(timer);
+          const loadTime = performance.now() - startTime;
+          totalLoadTime += loadTime;
+          
+          if (success && asset) {
+            assetCache.set(url, asset);
+          }
+          resolve(asset); // Always resolve
         };
-        img.src = url;
+        
+        timer = setTimeout(() => {
+          console.warn(`Asset load timeout: ${url} (${timeout}ms)`);
+          cleanup(false);
+        }, timeout);
+        
+        if (type === 'image') {
+          asset = new Image();
+          asset.crossOrigin = 'anonymous'; // Better caching
+          asset.decoding = 'async'; // Non-blocking decoding
+          asset.loading = 'eager'; // High priority loading
+          
+          asset.onload = () => cleanup(true);
+          asset.onerror = () => cleanup(false);
+          asset.src = url;
+        } else if (type === 'audio') {
+          asset = new Audio();
+          asset.crossOrigin = 'anonymous';
+          asset.preload = priority === 'critical' ? 'auto' : 'metadata';
+          
+          asset.oncanplaythrough = () => cleanup(true);
+          asset.onerror = () => cleanup(false);
+          asset.src = url;
+        }
+      });
+    }
+
+    async function fastPreloadAssets(onProgress) {
+      const startTime = performance.now();
+      let assetsProgress = { critical: 0, gameplay: 0, enhancement: 0, audio: 0 };
+      
+      // Phase 1: Load critical assets with highest priority
+      console.log('🚀 Loading critical assets...');
+      const criticalPromises = criticalAssets.map((url, index) => 
+        loadAssetWithTimeout(url, 'image', 2000, 'critical').then(asset => {
+          assetsProgress.critical++;
+          loadedAssets++;
+          updateLoadingProgress(loadedAssets, totalAssets, `Загрузка критических ресурсов... (${assetsProgress.critical}/${criticalAssets.length})`);
+          console.log(`✓ Critical asset ${assetsProgress.critical}/${criticalAssets.length}: ${url.split('/').pop()}`);
+          return asset;
+        })
+      );
+      
+      await Promise.all(criticalPromises);
+      assetsLoaded.critical = criticalAssets.length;
+      console.log(`✅ Critical assets loaded in ${Math.round(performance.now() - startTime)}ms`);
+      
+      // Start game immediately with critical assets
+      onProgress('critical');
+      
+      // Phase 2: Load gameplay assets in parallel
+      console.log('🎮 Loading gameplay assets...');
+      const gameplayPromises = gameplayAssets.map((url, index) => 
+        loadAssetWithTimeout(url, 'image', 3000, 'gameplay').then(asset => {
+          assetsProgress.gameplay++;
+          loadedAssets++;
+          updateLoadingProgress(loadedAssets, totalAssets, `Загрузка игровых ресурсов... (${assetsProgress.gameplay}/${gameplayAssets.length})`);
+          console.log(`✓ Gameplay asset ${assetsProgress.gameplay}/${gameplayAssets.length}: ${url.split('/').pop()}`);
+          return asset;
+        })
+      );
+      
+      // Phase 3: Load critical audio in parallel
+      const criticalAudio = audioAssets.filter(a => a.critical);
+      const audioPromises = criticalAudio.map(a => 
+        loadAssetWithTimeout(a.url, 'audio', 2500, 'critical').then(asset => {
+          assetsProgress.audio++;
+          loadedAssets++;
+          updateLoadingProgress(loadedAssets, totalAssets, 'Загрузка звуков...');
+          console.log(`🔊 Critical audio loaded: ${a.url.split('/').pop()}`);
+          return asset;
+        })
+      );
+      
+      // Wait for gameplay assets and critical audio
+      await Promise.all([...gameplayPromises, ...audioPromises]);
+      assetsLoaded.gameplay = gameplayAssets.length;
+      assetsLoaded.audio = criticalAudio.length;
+      console.log(`✅ Gameplay assets loaded in ${Math.round(performance.now() - startTime)}ms`);
+      
+      onProgress('gameplay');
+      
+      // Phase 4: Load enhancement assets in background (non-blocking)
+      console.log('🌟 Loading enhancement assets in background...');
+      const enhancementPromises = enhancementAssets.map(url => 
+        loadAssetWithTimeout(url, 'image', 5000, 'enhancement').then(asset => {
+          assetsProgress.enhancement++;
+          loadedAssets++;
+          updateLoadingProgress(loadedAssets, totalAssets, `Загрузка дополнений... (${assetsProgress.enhancement}/${enhancementAssets.length})`);
+          console.log(`🎨 Enhancement asset ${assetsProgress.enhancement}/${enhancementAssets.length}: ${url.split('/').pop()}`);
+          return asset;
+        })
+      );
+      
+      const nonCriticalAudio = audioAssets.filter(a => !a.critical);
+      const bgAudioPromises = nonCriticalAudio.map(a => 
+        loadAssetWithTimeout(a.url, 'audio', 6000, 'enhancement').then(asset => {
+          assetsProgress.audio++;
+          loadedAssets++;
+          updateLoadingProgress(loadedAssets, totalAssets, 'Загрузка фоновой музыки...');
+          console.log(`🎵 Background audio loaded: ${a.url.split('/').pop()}`);
+          return asset;
+        })
+      );
+      
+      // Don't wait for these - load in background
+      Promise.all([...enhancementPromises, ...bgAudioPromises]).then(() => {
+        assetsLoaded.enhancement = enhancementAssets.length;
+        assetsLoaded.audio += nonCriticalAudio.length;
+        const totalTime = Math.round(performance.now() - startTime);
+        console.log(`🎉 All assets loaded in ${totalTime}ms`);
+        console.log(`📊 Total asset load time: ${Math.round(totalLoadTime)}ms`);
+        console.log(`🏆 Cache hits: ${assetCache.size} assets cached`);
+        console.log(`⚡ Loading efficiency: ${Math.round((totalLoadTime / totalTime) * 100)}% utilization`);
+        onProgress('complete');
       });
       
-      audioUrls.forEach(url => {
-        const audio = new Audio();
-        audio.oncanplaythrough = check;
-        audio.onerror = () => {
-          console.warn('Failed to load audio:', url);
-          check();
-        };
-        audio.src = url;
-      });
+      console.log(`⚡ Fast loading complete in ${Math.round(performance.now() - startTime)}ms`);
     }
 
     // Hide game UI until loaded
     const loadingDiv = document.getElementById('loading');
     const gameContainerDiv = document.getElementById('gameContainer');
-    
-    if (gameContainerDiv) {
-      gameContainerDiv.style.display = 'none';
-    }
+    const playerElement = document.getElementById('player');
+    const loadingBar = document.getElementById('loadingBar');
+    const loadingText = document.getElementById('loadingText');
+    const loadingStatus = document.getElementById('loadingStatus');
 
-    // Initialize the game
-    preloadAssets(() => {
-      if (loadingDiv) {
-        loadingDiv.style.display = 'none';
-      }
-      if (gameContainerDiv) {
-        gameContainerDiv.style.display = '';
+    // Calculate total assets for progress tracking
+    const totalAssets = criticalAssets.length + gameplayAssets.length + enhancementAssets.length + audioAssets.length;
+    let loadedAssets = 0;
+
+    // Update loading progress
+    function updateLoadingProgress(loadedCount, totalCount, status) {
+      const percentage = Math.round((loadedCount / totalCount) * 100);
+      
+      if (loadingBar) {
+        loadingBar.style.width = percentage + '%';
       }
       
-      initializeAudio();
-      resetGame();
+      if (loadingText) {
+        loadingText.textContent = percentage + '%';
+      }
+      
+      if (loadingStatus && status) {
+        loadingStatus.textContent = status;
+      }
+    }
+
+    // Update loading text with progress
+    function updateLoadingText(phase) {
+      if (!loadingDiv) return;
+      
+      switch(phase) {
+        case 'critical':
+          updateLoadingProgress(criticalAssets.length, totalAssets, 'Игра готова! Загрузка контента...');
+          setTimeout(() => {
+            if (loadingDiv) {
+              loadingDiv.style.display = 'none';
+            }
+          }, 500); // Brief delay to show completion
+          break;
+        case 'gameplay':
+          const gameplayLoaded = criticalAssets.length + gameplayAssets.length + audioAssets.filter(a => a.critical).length;
+          updateLoadingProgress(gameplayLoaded, totalAssets, 'Загрузка дополнительного контента...');
+          break;
+        case 'complete':
+          updateLoadingProgress(totalAssets, totalAssets, 'Загрузка завершена!');
+          break;
+      }
+    }
+
+    // Initialize the game with fast loading
+    fastPreloadAssets((phase) => {
+      if (phase === 'critical') {
+        // Game can start with just critical assets
+        console.log('🎮 Starting game with critical assets...');
+        
+        // Performance monitoring
+        if (performance.mark) {
+          performance.mark('game-ready');
+        }
+        
+        if (loadingDiv) {
+          loadingDiv.style.display = 'none';
+        }
+        
+        initializeAudio();
+        resetGame();
+        
+        // Ensure player is visible immediately
+        if (playerElement) {
+          playerElement.style.display = 'block';
+          playerElement.style.visibility = 'visible';
+          playerElement.style.position = 'absolute';
+          playerElement.style.left = '60px';
+          playerElement.style.bottom = playerY + 'px';
+          playerElement.style.width = '72px';
+          playerElement.style.height = '72px';
+          playerElement.style.zIndex = '5';
+          console.log('✅ Player ready:', playerElement.style.left, playerElement.style.bottom);
+        }
+      } else if (phase === 'gameplay') {
+        console.log('🎯 Gameplay assets ready - full game functionality available');
+        updateLoadingText(phase);
+        
+        if (performance.mark) {
+          performance.mark('gameplay-ready');
+        }
+      } else if (phase === 'complete') {
+        console.log('🏆 All assets loaded - premium experience ready');
+        updateLoadingText(phase);
+        
+        if (performance.mark) {
+          performance.mark('all-assets-loaded');
+          performance.measure('loading-time', 'navigationStart', 'all-assets-loaded');
+        }
+        
+        // Cache performance report
+        if (console.table && assetCache.size > 0) {
+          console.log('📊 Loading Performance Report:');
+          console.table({
+            'Total Assets': totalAssets,
+            'Cached Assets': assetCache.size,
+            'Cache Hit Rate': Math.round((assetCache.size / totalAssets) * 100) + '%',
+            'Load Time': Math.round(totalLoadTime) + 'ms'
+          });
+        }
+      }
+    }).catch(error => {
+      console.error('❌ Asset loading failed:', error);
+      // Fallback: try to start game anyway
+      if (loadingDiv) {
+        loadingDiv.innerHTML = '<div style="color:#ff4444;">Ошибка загрузки, пробуем запустить...</div>';
+      }
+      setTimeout(() => {
+        if (loadingDiv) loadingDiv.style.display = 'none';
+        initializeAudio();
+        resetGame();
+      }, 1000);
     });
 
     // Improved audio initialization with error handling
