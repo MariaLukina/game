@@ -82,7 +82,7 @@
     #gameContainer.dark #ground {
       background: #666;
     }
-    #score, #gameOver, h1, p {
+    #score, #gameOver, h1, p, #highScore {
       color: #ff69b4 !important; /* bright pink */
       transition: color 0.5s;
     }
@@ -154,6 +154,7 @@
 </head>
 <body>
   <h1>ПРИКЛЮЧЕНИЯ СОФИИ</h1>
+  <div id="highScore" style="color:#ff69b4;margin-bottom:8px;">Лучший результат: 0</div>
   <div id="score">Счёт: 0</div>
   <div id="speed" style="color:#2196f3;margin-bottom:20px;margin-top:8px;">Скорость: 0.0</div>
   <div id="loading" style="font-family:'Press Start 2P',cursive;font-size:1.2em;color:#2196f3;margin-top:40px;">Загрузка...</div>
@@ -178,6 +179,7 @@
     const gameContainer = document.getElementById('gameContainer');
     const player = document.getElementById('player');
     const scoreDisplay = document.getElementById('score');
+    const highScoreDisplay = document.getElementById('highScore');
     const gameOverDisplay = document.getElementById('gameOver');
     const groundCanvas = document.getElementById('groundCanvas');
     const groundCtx = groundCanvas.getContext('2d');
@@ -191,7 +193,7 @@
     // Game settings
     const gravity = 0.7;
     const jumpStrength = 14; // slightly lower jump
-    let obstacleSpeed = 4.5; // faster initial speed
+    let obstacleSpeed = 3; // starting speed changed to 3
     let nextObstacleInterval = 1200 + Math.random() * 1000; // ms, random between 1200-2200
     const groundY = 24;
     const playerSize = 72;
@@ -353,12 +355,17 @@
     const jumpSound = document.getElementById('jumpSound');
     let soundOn = false;
     let soundsOn = true;
+    let highScore = 0;
     
-    // Load music state from localStorage with proper error handling
+    // Load music state and high score from localStorage with proper error handling
     try {
       const savedSoundOn = localStorage.getItem('musicOn');
       if (savedSoundOn !== null) {
         soundOn = savedSoundOn === 'true';
+      }
+      const savedHighScore = localStorage.getItem('highScore');
+      if (savedHighScore !== null) {
+        highScore = parseInt(savedHighScore) || 0;
       }
     } catch (e) {
       console.warn('Could not access localStorage:', e);
@@ -371,19 +378,8 @@
     
     updateMusicButton();
     updateSoundsButton();
+    updateHighScoreDisplay();
     
-    // Improved audio initialization with error handling
-    function initializeAudio() {
-      try {
-        // Don't auto-play on load - wait for user interaction
-        gameMusic.volume = 0.7;
-        loseSound.volume = 0.8;
-        jumpSound.volume = 0.6;
-      } catch (e) {
-        console.warn('Audio initialization error:', e);
-      }
-    }
-
     function updateMusicButton() {
       if (soundToggleBtn) {
         soundToggleBtn.textContent = soundOn ? '🎵 Музыка: Вкл' : '🎵 Музыка: Выкл';
@@ -393,6 +389,24 @@
     function updateSoundsButton() {
       if (soundsToggleBtn) {
         soundsToggleBtn.textContent = soundsOn ? '🔊 Звуки: Вкл' : '🔊 Звуки: Выкл';
+      }
+    }
+
+    function updateHighScoreDisplay() {
+      if (highScoreDisplay) {
+        highScoreDisplay.textContent = 'Лучший результат: ' + Math.floor(highScore);
+      }
+    }
+
+    function updateHighScore(currentScore) {
+      if (currentScore > highScore) {
+        highScore = currentScore;
+        updateHighScoreDisplay();
+        try {
+          localStorage.setItem('highScore', highScore.toString());
+        } catch (e) {
+          console.warn('Could not save high score to localStorage:', e);
+        }
       }
     }
 
@@ -466,7 +480,7 @@
       gameStarted = false;
       gameRunning = false;
       score = 0;
-      obstacleSpeed = 4.5;
+      obstacleSpeed = 3;
       if (speedDisplay) {
         speedDisplay.textContent = 'Скорость: ' + obstacleSpeed.toFixed(1);
       }
@@ -513,6 +527,7 @@
       if (h1) h1.style.color = '#ff69b4';
       if (p) p.style.color = '#ff69b4';
       if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
+      if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
       if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
       
       drawStars();
@@ -836,7 +851,7 @@
         lastTime = timestamp;
 
         // Gradually increase speed over time
-        obstacleSpeed = Math.min(4.5 + score * 0.001, 7.0);
+        obstacleSpeed = Math.min(3 + score * 0.001, 7.0);
         if (speedDisplay) {
           speedDisplay.textContent = 'Скорость: ' + obstacleSpeed.toFixed(1);
         }
@@ -852,6 +867,7 @@
             if (h1) h1.style.color = '#ff69b4';
             if (p) p.style.color = '#ff69b4';
             if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
+            if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
             if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
             darkMode = true;
             drawStars();
@@ -864,6 +880,7 @@
             if (h1) h1.style.color = '#ff69b4';
             if (p) p.style.color = '#ff69b4';
             if (scoreDisplay) scoreDisplay.style.color = '#ff69b4';
+            if (highScoreDisplay) highScoreDisplay.style.color = '#ff69b4';
             if (gameOverDisplay) gameOverDisplay.style.color = '#ff69b4';
             darkMode = false;
             if (starsCtx) {
@@ -950,6 +967,9 @@
         if (scoreDisplay) {
           scoreDisplay.textContent = 'Счёт: ' + Math.floor(score);
         }
+        
+        // Update high score if current score is higher
+        updateHighScore(score);
 
         // Move ground offset with the same speed as obstacles
         groundOffset += obstacleSpeed * 0.9;
@@ -1101,6 +1121,18 @@
       initializeAudio();
       resetGame();
     });
+
+    // Improved audio initialization with error handling
+    function initializeAudio() {
+      try {
+        // Don't auto-play on load - wait for user interaction
+        gameMusic.volume = 0.7;
+        loseSound.volume = 0.8;
+        jumpSound.volume = 0.6;
+      } catch (e) {
+        console.warn('Audio initialization error:', e);
+      }
+    }
   </script>
 </body>
 </html>
